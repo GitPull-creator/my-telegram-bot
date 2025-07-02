@@ -1,9 +1,10 @@
 package config
 
 import (
-	"github.com/joho/godotenv"
 	"log"
 	"os"
+
+	"github.com/joho/godotenv"
 )
 
 type Config struct {
@@ -12,10 +13,8 @@ type Config struct {
 }
 
 func LoadConfig() Config {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
+	// Попытаемся загрузить .env файл, но не будем падать если его нет (production)
+	_ = godotenv.Load()
 	token := os.Getenv("BOT_TOKEN")
 	if token == "" {
 		log.Fatal("BOT_TOKEN is not set")
