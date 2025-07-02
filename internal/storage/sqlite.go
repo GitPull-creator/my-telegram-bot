@@ -59,6 +59,7 @@ func GetCategoryCards(db *sql.DB, userID int64, categoryID int) ([]database.Card
 		}
 		cards = append(cards, card)
 	}
+
 	return cards, nil
 }
 

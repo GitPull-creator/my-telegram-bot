@@ -149,7 +149,13 @@ func handleAddCard(b *Bot, chatID int64, userID int64, categoryID string) {
 }
 
 func handleShowCards(b *Bot, chatID int64, userID int64, categoryID string) {
-	categoryIDInt, _ := strconv.Atoi(categoryID)
+	categoryIDInt, err := strconv.Atoi(categoryID)
+	if err != nil {
+		log.Printf("Ошибка преобразования categoryID: %s, ошибка: %v", categoryID, err)
+		msg := tgbotapi.NewMessage(chatID, "❌ Ошибка идентификатора категории")
+		b.bot.Send(msg)
+		return
+	}
 
 	cards, err := storage.GetCategoryCards(b.DB, userID, categoryIDInt)
 	if err != nil {
@@ -255,12 +261,9 @@ func handleText(b *Bot, message *tgbotapi.Message) {
 			msg := tgbotapi.NewMessage(message.Chat.ID, "✅ Подкатегория '"+text+"' создана!")
 			b.bot.Send(msg)
 
-			category, err := storage.GetCategoryByID(b.DB, userID, state.CategoryID)
-			if err == nil {
-				msg2 := tgbotapi.NewMessage(message.Chat.ID, "Вы можете:")
-				msg2.ReplyMarkup = createCategoryKeyboard(strconv.Itoa(state.CategoryID), category.Name)
-				b.bot.Send(msg2)
-			}
+			msg2 := tgbotapi.NewMessage(message.Chat.ID, "👋 Выберите категорию:")
+			msg2.ReplyMarkup = createMainKeyboard(b.DB, userID)
+			b.bot.Send(msg2)
 		}
 
 		ClearUserState(userID)
@@ -288,13 +291,9 @@ func saveCard(b *Bot, userID int64, chatID int64, state UserState, link string) 
 	msg := tgbotapi.NewMessage(chatID, "✅ Карточка успешно добавлена!")
 	b.bot.Send(msg)
 
-	categoryIDInt, _ := strconv.Atoi(strconv.Itoa(state.CategoryID))
-	category, err := storage.GetCategoryByID(b.DB, userID, categoryIDInt)
-	if err == nil {
-		msg2 := tgbotapi.NewMessage(chatID, "Вы можете:")
-		msg2.ReplyMarkup = createCategoryKeyboard(strconv.Itoa(state.CategoryID), category.Name)
-		b.bot.Send(msg2)
-	}
+	msg2 := tgbotapi.NewMessage(chatID, "👋 Выберите категорию:")
+	msg2.ReplyMarkup = createMainKeyboard(b.DB, userID)
+	b.bot.Send(msg2)
 }
 
 func handleAddSubcategory(b *Bot, chatID int64, userID int64, categoryID string) {
