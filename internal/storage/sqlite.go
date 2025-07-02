@@ -2,7 +2,6 @@ package storage
 
 import (
 	"database/sql"
-	"log"
 	"my-telegram-bot/internal/database"
 )
 
@@ -17,11 +16,9 @@ func GetCategoryID(db *sql.DB, userID int64, categoryName string) (int, error) {
 
 func GetUserCategories(db *sql.DB, userID int64) ([]database.Category, error) {
 	query := "SELECT id, name, user_id FROM categories WHERE user_id = ?"
-	log.Printf("GetUserCategories: запрос категорий для пользователя %d", userID)
 
 	rows, err := db.Query(query, userID)
 	if err != nil {
-		log.Printf("GetUserCategories: ошибка запроса: %v", err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -30,14 +27,11 @@ func GetUserCategories(db *sql.DB, userID int64) ([]database.Category, error) {
 	for rows.Next() {
 		var category database.Category
 		if err := rows.Scan(&category.ID, &category.Name, &category.UserID); err != nil {
-			log.Printf("GetUserCategories: ошибка сканирования строки: %v", err)
 			return nil, err
 		}
-		log.Printf("GetUserCategories: найдена категория ID=%d, Name=%s, UserID=%d", category.ID, category.Name, category.UserID)
 		categories = append(categories, category)
 	}
 
-	log.Printf("GetUserCategories: всего найдено %d категорий", len(categories))
 	return categories, nil
 }
 

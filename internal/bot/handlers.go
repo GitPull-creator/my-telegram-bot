@@ -25,10 +25,8 @@ func createMainKeyboard(db *sql.DB, userID int64) tgbotapi.InlineKeyboardMarkup 
 
 	buttons := make([][]tgbotapi.InlineKeyboardButton, len(categories))
 	for i, category := range categories {
-		callbackData := "category:" + strconv.Itoa(category.ID)
-		log.Printf("Создание кнопки: Name=%s, ID=%d, CallbackData=%s", category.Name, category.ID, callbackData)
 		buttons[i] = []tgbotapi.InlineKeyboardButton{
-			tgbotapi.NewInlineKeyboardButtonData(category.Name, callbackData),
+			tgbotapi.NewInlineKeyboardButtonData(category.Name, "category:"+strconv.Itoa(category.ID)),
 		}
 	}
 
@@ -36,8 +34,6 @@ func createMainKeyboard(db *sql.DB, userID int64) tgbotapi.InlineKeyboardMarkup 
 }
 
 func handleStart(b *Bot, chatID int64, userID int64) {
-	log.Printf("handleStart вызван для пользователя %d", userID)
-
 	if err := database.CreateUserCategories(b.DB, userID); err != nil {
 		log.Printf("Ошибка создания категорий для пользователя %d: %v", userID, err)
 		msg := tgbotapi.NewMessage(chatID, "❌ Ошибка инициализации категорий. Попробуйте еще раз.")
@@ -349,8 +345,6 @@ func handleAddSubcategory(b *Bot, chatID int64, userID int64, categoryID string)
 }
 
 func handleReset(b *Bot, chatID int64, userID int64) {
-	log.Printf("Сброс категорий для пользователя %d", userID)
-
 	if err := database.ResetUserCategories(b.DB, userID); err != nil {
 		log.Printf("Ошибка сброса категорий: %v", err)
 		msg := tgbotapi.NewMessage(chatID, "❌ Ошибка сброса категорий")
