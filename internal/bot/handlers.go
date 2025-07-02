@@ -67,24 +67,26 @@ func handleCallback(b *Bot, callback *tgbotapi.CallbackQuery) {
 	switch {
 	case callbackData == "back_main":
 		handleStart(b, callback.Message.Chat.ID, callback.From.ID)
-	case callbackData[:9] == "category:":
+	case len(callbackData) > 9 && callbackData[:9] == "category:":
 		categoryID := callbackData[9:]
 		handleCategorySelect(b, callback.Message.Chat.ID, callback.From.ID, categoryID)
 
-	case callbackData[:9] == "add_card:":
+	case len(callbackData) > 9 && callbackData[:9] == "add_card:":
 		categoryID := callbackData[9:]
 		handleAddCard(b, callback.Message.Chat.ID, callback.From.ID, categoryID)
 
-	case callbackData[:11] == "show_cards:":
+	case len(callbackData) > 11 && callbackData[:11] == "show_cards:":
 		categoryID := callbackData[11:]
 		handleShowCards(b, callback.Message.Chat.ID, callback.From.ID, categoryID)
 
-	case callbackData[:16] == "add_subcategory:":
+	case len(callbackData) > 16 && callbackData[:16] == "add_subcategory:":
 		categoryID := callbackData[16:]
 		handleAddSubcategory(b, callback.Message.Chat.ID, callback.From.ID, categoryID)
 
 	default:
-		log.Println("Неизвестный callback:", callbackData)
+		log.Printf("Неизвестный callback: %s", callbackData)
+		msg := tgbotapi.NewMessage(callback.Message.Chat.ID, "❌ Неверная команда")
+		b.bot.Send(msg)
 	}
 
 	callback_answer := tgbotapi.NewCallback(callback.ID, "")
@@ -93,9 +95,19 @@ func handleCallback(b *Bot, callback *tgbotapi.CallbackQuery) {
 
 func handleCategorySelect(b *Bot, chatID int64, userID int64, categoryID string) {
 	categoryIDInt, err := strconv.Atoi(categoryID)
+	if err != nil {
+		log.Printf("Ошибка преобразования categoryID: %s, ошибка: %v", categoryID, err)
+		msg := tgbotapi.NewMessage(chatID, "❌ Ошибка идентификатора категории")
+		b.bot.Send(msg)
+		return
+	}
+
 	category, err := storage.GetCategoryByID(b.DB, userID, categoryIDInt)
 	if err != nil {
 		log.Println("DB error:", err)
+		msg := tgbotapi.NewMessage(chatID, "❌ Категория не найдена")
+		b.bot.Send(msg)
+		return
 	}
 
 	if category.Name == "Косметика" {
@@ -139,7 +151,14 @@ func createCategoryKeyboard(categoryID string, categoryName string) tgbotapi.Inl
 }
 
 func handleAddCard(b *Bot, chatID int64, userID int64, categoryID string) {
-	categoryIDInt, _ := strconv.Atoi(categoryID)
+	categoryIDInt, err := strconv.Atoi(categoryID)
+	if err != nil {
+		log.Printf("Ошибка преобразования categoryID в handleAddCard: %s, ошибка: %v", categoryID, err)
+		msg := tgbotapi.NewMessage(chatID, "❌ Ошибка идентификатора категории")
+		b.bot.Send(msg)
+		return
+	}
+
 	SetUserState(userID, "waiting_photo", categoryIDInt)
 	msg := tgbotapi.NewMessage(chatID, "📸 Пришлите фото для карточки:")
 
@@ -297,7 +316,14 @@ func saveCard(b *Bot, userID int64, chatID int64, state UserState, link string) 
 }
 
 func handleAddSubcategory(b *Bot, chatID int64, userID int64, categoryID string) {
-	categoryIDInt, _ := strconv.Atoi(categoryID)
+	categoryIDInt, err := strconv.Atoi(categoryID)
+	if err != nil {
+		log.Printf("Ошибка преобразования categoryID в handleAddSubcategory: %s, ошибка: %v", categoryID, err)
+		msg := tgbotapi.NewMessage(chatID, "❌ Ошибка идентификатора категории")
+		b.bot.Send(msg)
+		return
+	}
+
 	SetUserState(userID, "waiting_subcategory_name", categoryIDInt)
 	msg := tgbotapi.NewMessage(chatID, "✍️ Введите название подкатегории:")
 	b.bot.Send(msg)
