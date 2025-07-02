@@ -16,10 +16,14 @@ func createMainKeyboard(db *sql.DB, userID int64) tgbotapi.InlineKeyboardMarkup 
 		log.Println("DB error:", err)
 	}
 
+	log.Printf("Получено %d категорий для пользователя %d", len(categories), userID)
+
 	buttons := make([][]tgbotapi.InlineKeyboardButton, len(categories))
 	for i, category := range categories {
+		callbackData := "category:" + strconv.Itoa(category.ID)
+		log.Printf("Создание кнопки: Name=%s, ID=%d, CallbackData=%s", category.Name, category.ID, callbackData)
 		buttons[i] = []tgbotapi.InlineKeyboardButton{
-			tgbotapi.NewInlineKeyboardButtonData(category.Name, "category:"+strconv.Itoa(category.ID)),
+			tgbotapi.NewInlineKeyboardButtonData(category.Name, callbackData),
 		}
 	}
 
@@ -27,10 +31,15 @@ func createMainKeyboard(db *sql.DB, userID int64) tgbotapi.InlineKeyboardMarkup 
 }
 
 func handleStart(b *Bot, chatID int64, userID int64) {
+	log.Printf("handleStart вызван для пользователя %d", userID)
 
 	if err := database.CreateUserCategories(b.DB, userID); err != nil {
-		log.Println("DB error:", err)
+		log.Printf("Ошибка создания категорий для пользователя %d: %v", userID, err)
+		msg := tgbotapi.NewMessage(chatID, "❌ Ошибка инициализации категорий. Попробуйте еще раз.")
+		b.bot.Send(msg)
+		return
 	}
+
 	msg := tgbotapi.NewMessage(chatID, "👋 Привет! Добро пожаловать в твою птичью галерею красоты. Выбери категорию:")
 	msg.ReplyMarkup = createMainKeyboard(b.DB, userID)
 

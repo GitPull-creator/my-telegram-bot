@@ -3,6 +3,7 @@ package database
 import (
 	"database/sql"
 	"fmt"
+	"log"
 
 	_ "modernc.org/sqlite"
 )
@@ -63,6 +64,9 @@ func CreateUserCategories(db *sql.DB, userID int64) error {
 	if err := db.QueryRow(checkQuery, userID).Scan(&cnt); err != nil {
 		return fmt.Errorf("проверка категорий пользователя: %w", err)
 	}
+
+	log.Printf("CreateUserCategories: найдено %d категорий для пользователя %d", cnt, userID)
+
 	if cnt > 0 {
 		return nil
 	}
@@ -79,10 +83,14 @@ func CreateUserCategories(db *sql.DB, userID int64) error {
 	defer stmt.Close()
 
 	for _, name := range defaults {
-		if _, err = stmt.Exec(name, userID); err != nil {
+		result, err := stmt.Exec(name, userID)
+		if err != nil {
 			tx.Rollback()
 			return err
 		}
+
+		id, _ := result.LastInsertId()
+		log.Printf("CreateUserCategories: создана категория '%s' с ID=%d для пользователя %d", name, id, userID)
 	}
 	return tx.Commit()
 }
