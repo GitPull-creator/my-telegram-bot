@@ -13,10 +13,15 @@ import (
 func createMainKeyboard(db *sql.DB, userID int64) tgbotapi.InlineKeyboardMarkup {
 	categories, err := storage.GetUserCategories(db, userID)
 	if err != nil {
-		log.Println("DB error:", err)
+		log.Printf("Ошибка получения категорий: %v", err)
+		return tgbotapi.NewInlineKeyboardMarkup()
 	}
 
-	log.Printf("Получено %d категорий для пользователя %d", len(categories), userID)
+	if len(categories) == 0 {
+		log.Printf("Нет категорий для пользователя %d", userID)
+		// Возвращаем пустую клавиатуру
+		return tgbotapi.NewInlineKeyboardMarkup()
+	}
 
 	buttons := make([][]tgbotapi.InlineKeyboardButton, len(categories))
 	for i, category := range categories {
@@ -57,6 +62,11 @@ func handleUpdate(b *Bot, update tgbotapi.Update) {
 
 		if update.Message.Text == "/start" {
 			handleStart(b, update.Message.Chat.ID, update.Message.From.ID)
+			return
+		}
+
+		if update.Message.Text == "/reset" {
+			handleReset(b, update.Message.Chat.ID, update.Message.From.ID)
 			return
 		}
 
@@ -336,4 +346,21 @@ func handleAddSubcategory(b *Bot, chatID int64, userID int64, categoryID string)
 	SetUserState(userID, "waiting_subcategory_name", categoryIDInt)
 	msg := tgbotapi.NewMessage(chatID, "✍️ Введите название подкатегории:")
 	b.bot.Send(msg)
+}
+
+func handleReset(b *Bot, chatID int64, userID int64) {
+	log.Printf("Сброс категорий для пользователя %d", userID)
+
+	if err := database.ResetUserCategories(b.DB, userID); err != nil {
+		log.Printf("Ошибка сброса категорий: %v", err)
+		msg := tgbotapi.NewMessage(chatID, "❌ Ошибка сброса категорий")
+		b.bot.Send(msg)
+		return
+	}
+
+	msg := tgbotapi.NewMessage(chatID, "✅ Категории успешно сброшены!")
+	b.bot.Send(msg)
+
+	// Показываем главное меню
+	handleStart(b, chatID, userID)
 }

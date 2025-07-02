@@ -71,6 +71,21 @@ func CreateUserCategories(db *sql.DB, userID int64) error {
 		return nil
 	}
 
+	return createDefaultCategories(db, userID)
+}
+
+func ResetUserCategories(db *sql.DB, userID int64) error {
+	// Удаляем все старые категории пользователя
+	_, err := db.Exec("DELETE FROM categories WHERE user_id = ?", userID)
+	if err != nil {
+		return fmt.Errorf("ошибка удаления категорий: %w", err)
+	}
+
+	// Создаем новые категории
+	return createDefaultCategories(db, userID)
+}
+
+func createDefaultCategories(db *sql.DB, userID int64) error {
 	defaults := []string{"Косметика", "Маникюр", "Педикюр"}
 	tx, err := db.Begin()
 	if err != nil {
@@ -78,6 +93,7 @@ func CreateUserCategories(db *sql.DB, userID int64) error {
 	}
 	stmt, err := tx.Prepare(`INSERT INTO categories (name, user_id) VALUES (?, ?)`)
 	if err != nil {
+		tx.Rollback()
 		return err
 	}
 	defer stmt.Close()
