@@ -114,6 +114,17 @@ func handleCallback(b *Bot, callback *tgbotapi.CallbackQuery) {
 		categoryID := callbackData[13:]
 		handleCategorySelect(b, callback.Message.Chat.ID, callback.From.ID, categoryID)
 
+	case len(callbackData) > 12 && callbackData[:12] == "delete_card:":
+		cardID := callbackData[12:]
+		handleDeleteCardConfirmation(b, callback.Message.Chat.ID, callback.From.ID, cardID)
+
+	case len(callbackData) > 14 && callbackData[:14] == "confirm_delete:":
+		cardID := callbackData[14:]
+		handleConfirmDelete(b, callback.Message.Chat.ID, callback.From.ID, cardID)
+
+	case len(callbackData) > 13 && callbackData[:13] == "cancel_delete:":
+		handleCancelDelete(b, callback.Message.Chat.ID, callback.From.ID)
+
 	default:
 		log.Printf("Неизвестный callback: %s", callbackData)
 		msg := tgbotapi.NewMessage(callback.Message.Chat.ID, "❌ Неверная команда")
@@ -242,6 +253,13 @@ func handleShowCards(b *Bot, chatID int64, userID int64, categoryID string) {
 	} else {
 		for _, card := range cards {
 			photo := tgbotapi.NewPhoto(chatID, tgbotapi.FileID(card.PhotoFileID))
+
+			deleteButton := tgbotapi.NewInlineKeyboardMarkup(
+				tgbotapi.NewInlineKeyboardRow(
+					tgbotapi.NewInlineKeyboardButtonData("🗑️ Удалить карточку", "delete_card:"+strconv.Itoa(card.ID)),
+				),
+			)
+			photo.ReplyMarkup = deleteButton
 			b.bot.Send(photo)
 		}
 	}
@@ -435,6 +453,13 @@ func handleShowSubcategoryCards(b *Bot, chatID int64, userID int64, subcategoryI
 	} else {
 		for _, card := range cards {
 			photo := tgbotapi.NewPhoto(chatID, tgbotapi.FileID(card.PhotoFileID))
+
+			deleteButton := tgbotapi.NewInlineKeyboardMarkup(
+				tgbotapi.NewInlineKeyboardRow(
+					tgbotapi.NewInlineKeyboardButtonData("🗑️ Удалить карточку", "delete_card:"+strconv.Itoa(card.ID)),
+				),
+			)
+			photo.ReplyMarkup = deleteButton
 			b.bot.Send(photo)
 		}
 	}
@@ -456,4 +481,68 @@ func handleShowSubcategoryCards(b *Bot, chatID int64, userID int64, subcategoryI
 		msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(buttons...)
 		b.bot.Send(msg)
 	}
+}
+
+func handleDeleteCardConfirmation(b *Bot, chatID int64, userID int64, cardID string) {
+	cardIDInt, err := strconv.Atoi(cardID)
+	if err != nil {
+		log.Printf("Ошибка преобразования cardID: %s, ошибка: %v", cardID, err)
+		msg := tgbotapi.NewMessage(chatID, "❌ Ошибка идентификатора карточки")
+		b.bot.Send(msg)
+		return
+	}
+
+	card, err := storage.GetCardByID(b.DB, userID, cardIDInt)
+	if err != nil {
+		log.Println("DB error:", err)
+		msg := tgbotapi.NewMessage(chatID, "❌ Карточка не найдена")
+		b.bot.Send(msg)
+		return
+	}
+
+	photo := tgbotapi.NewPhoto(chatID, tgbotapi.FileID(card.PhotoFileID))
+	photo.Caption = "⚠️ Вы уверены, что хотите удалить эту карточку?"
+
+	buttons := [][]tgbotapi.InlineKeyboardButton{
+		{
+			tgbotapi.NewInlineKeyboardButtonData("✅ Да, удалить", "confirm_delete:"+cardID),
+			tgbotapi.NewInlineKeyboardButtonData("❌ Отмена", "cancel_delete:"+cardID),
+		},
+	}
+
+	photo.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(buttons...)
+	b.bot.Send(photo)
+}
+
+func handleConfirmDelete(b *Bot, chatID int64, userID int64, cardID string) {
+	cardIDInt, err := strconv.Atoi(cardID)
+	if err != nil {
+		log.Printf("Ошибка преобразования cardID: %s, ошибка: %v", cardID, err)
+		msg := tgbotapi.NewMessage(chatID, "❌ Ошибка идентификатора карточки")
+		b.bot.Send(msg)
+		return
+	}
+
+	err = storage.DeleteCard(b.DB, cardIDInt, userID)
+	if err != nil {
+		log.Println("Ошибка удаления карточки:", err)
+		msg := tgbotapi.NewMessage(chatID, "❌ Ошибка при удалении карточки")
+		b.bot.Send(msg)
+	} else {
+		msg := tgbotapi.NewMessage(chatID, "✅ Карточка успешно удалена!")
+		b.bot.Send(msg)
+	}
+
+	msg2 := tgbotapi.NewMessage(chatID, "👋 Выберите категорию:")
+	msg2.ReplyMarkup = createMainKeyboard(b.DB, userID)
+	b.bot.Send(msg2)
+}
+
+func handleCancelDelete(b *Bot, chatID int64, userID int64) {
+	msg := tgbotapi.NewMessage(chatID, "❌ Удаление отменено")
+	b.bot.Send(msg)
+
+	msg2 := tgbotapi.NewMessage(chatID, "👋 Выберите категорию:")
+	msg2.ReplyMarkup = createMainKeyboard(b.DB, userID)
+	b.bot.Send(msg2)
 }

@@ -118,3 +118,32 @@ func GetSubcategoryCards(db *sql.DB, userID int64, subcategoryID int) ([]databas
 	}
 	return cards, nil
 }
+
+func DeleteCard(db *sql.DB, cardID int, userID int64) error {
+	query := "DELETE FROM cards WHERE id = ? AND user_id = ?"
+	result, err := db.Exec(query, cardID, userID)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+
+	return nil
+}
+
+func GetCardByID(db *sql.DB, userID int64, cardID int) (database.Card, error) {
+	query := "SELECT id, photo_file_id, category_id, subcategory_id, user_id FROM cards WHERE id = ? AND user_id = ?"
+	var card database.Card
+	err := db.QueryRow(query, cardID, userID).Scan(&card.ID, &card.PhotoFileID, &card.CategoryID, &card.SubcategoryID, &card.UserID)
+	if err != nil {
+		return database.Card{}, err
+	}
+	return card, nil
+}
