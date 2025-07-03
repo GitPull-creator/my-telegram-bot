@@ -99,14 +99,14 @@ func handleCallback(b *Bot, callback *tgbotapi.CallbackQuery) {
 		cardID := callbackData[12:]
 		handleDeleteCardConfirmation(b, callback.Message.Chat.ID, callback.From.ID, cardID)
 
-	case len(callbackData) >= 19 && callbackData[:19] == "show_sub_cards:":
+	case len(callbackData) >= 15 && callbackData[:15] == "show_sub_cards:":
 		log.Printf("DEBUG: Обрабатываем show_sub_cards")
-		subcategoryID := callbackData[19:]
+		subcategoryID := callbackData[15:]
 		handleShowSubcategoryCards(b, callback.Message.Chat.ID, callback.From.ID, subcategoryID)
 
-	case len(callbackData) >= 17 && callbackData[:17] == "add_sub_card:":
+	case len(callbackData) >= 13 && callbackData[:13] == "add_sub_card:":
 		log.Printf("DEBUG: Обрабатываем add_sub_card")
-		subcategoryID := callbackData[17:]
+		subcategoryID := callbackData[13:]
 		handleAddSubcategoryCard(b, callback.Message.Chat.ID, callback.From.ID, subcategoryID)
 
 	case len(callbackData) >= 16 && callbackData[:16] == "add_subcategory:":
