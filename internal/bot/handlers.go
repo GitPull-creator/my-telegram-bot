@@ -78,56 +78,69 @@ func handleUpdate(b *Bot, update tgbotapi.Update) {
 
 func handleCallback(b *Bot, callback *tgbotapi.CallbackQuery) {
 	callbackData := callback.Data
+	log.Printf("DEBUG: Получен callback: '%s', длина: %d", callbackData, len(callbackData))
 
 	switch {
 	case callbackData == "back_main":
+		log.Printf("DEBUG: Обрабатываем back_main")
 		handleStart(b, callback.Message.Chat.ID, callback.From.ID)
 
 	case len(callbackData) >= 14 && callbackData[:14] == "confirm_delete:":
+		log.Printf("DEBUG: Обрабатываем confirm_delete")
 		cardID := callbackData[14:]
 		handleConfirmDelete(b, callback.Message.Chat.ID, callback.From.ID, cardID)
 
 	case len(callbackData) >= 13 && callbackData[:13] == "cancel_delete:":
+		log.Printf("DEBUG: Обрабатываем cancel_delete")
 		handleCancelDelete(b, callback.Message.Chat.ID, callback.From.ID)
 
 	case len(callbackData) >= 12 && callbackData[:12] == "delete_card:":
+		log.Printf("DEBUG: Обрабатываем delete_card")
 		cardID := callbackData[12:]
 		handleDeleteCardConfirmation(b, callback.Message.Chat.ID, callback.From.ID, cardID)
 
 	case len(callbackData) >= 19 && callbackData[:19] == "show_sub_cards:":
+		log.Printf("DEBUG: Обрабатываем show_sub_cards")
 		subcategoryID := callbackData[19:]
 		handleShowSubcategoryCards(b, callback.Message.Chat.ID, callback.From.ID, subcategoryID)
 
 	case len(callbackData) >= 17 && callbackData[:17] == "add_sub_card:":
+		log.Printf("DEBUG: Обрабатываем add_sub_card")
 		subcategoryID := callbackData[17:]
 		handleAddSubcategoryCard(b, callback.Message.Chat.ID, callback.From.ID, subcategoryID)
 
 	case len(callbackData) >= 16 && callbackData[:16] == "add_subcategory:":
+		log.Printf("DEBUG: Обрабатываем add_subcategory")
 		categoryID := callbackData[16:]
 		handleAddSubcategory(b, callback.Message.Chat.ID, callback.From.ID, categoryID)
 
-	case len(callbackData) >= 13 && callbackData[:13] == "subcategory:":
-		subcategoryID := callbackData[13:]
+	case len(callbackData) >= 12 && callbackData[:12] == "subcategory:":
+		log.Printf("DEBUG: Обрабатываем subcategory")
+		subcategoryID := callbackData[12:]
 		handleSubcategorySelect(b, callback.Message.Chat.ID, callback.From.ID, subcategoryID)
 
 	case len(callbackData) >= 13 && callbackData[:13] == "back_to_cat:":
+		log.Printf("DEBUG: Обрабатываем back_to_cat")
 		categoryID := callbackData[13:]
 		handleCategorySelect(b, callback.Message.Chat.ID, callback.From.ID, categoryID)
 
 	case len(callbackData) >= 11 && callbackData[:11] == "show_cards:":
+		log.Printf("DEBUG: Обрабатываем show_cards")
 		categoryID := callbackData[11:]
 		handleShowCards(b, callback.Message.Chat.ID, callback.From.ID, categoryID)
 
 	case len(callbackData) >= 9 && callbackData[:9] == "category:":
+		log.Printf("DEBUG: Обрабатываем category")
 		categoryID := callbackData[9:]
 		handleCategorySelect(b, callback.Message.Chat.ID, callback.From.ID, categoryID)
 
 	case len(callbackData) >= 9 && callbackData[:9] == "add_card:":
+		log.Printf("DEBUG: Обрабатываем add_card")
 		categoryID := callbackData[9:]
 		handleAddCard(b, callback.Message.Chat.ID, callback.From.ID, categoryID)
 
 	default:
-		log.Printf("Неизвестный callback: %s", callbackData)
+		log.Printf("ОШИБКА: Неизвестный callback: '%s', длина: %d", callbackData, len(callbackData))
 		msg := tgbotapi.NewMessage(callback.Message.Chat.ID, "❌ Неверная команда")
 		b.bot.Send(msg)
 	}
