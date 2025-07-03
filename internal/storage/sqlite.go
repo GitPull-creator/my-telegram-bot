@@ -36,8 +36,8 @@ func GetUserCategories(db *sql.DB, userID int64) ([]database.Category, error) {
 }
 
 func AddCard(db *sql.DB, card *database.Card) error {
-	query := "INSERT INTO cards (photo_file_id, title, link, category_id, subcategory_id, user_id) VALUES (?, ?, ?, ?, ?, ?)"
-	_, err := db.Exec(query, card.PhotoFileID, card.Title, card.Link, card.CategoryID, card.SubcategoryID, card.UserID)
+	query := "INSERT INTO cards (photo_file_id, category_id, subcategory_id, user_id) VALUES (?, ?, ?, ?)"
+	_, err := db.Exec(query, card.PhotoFileID, card.CategoryID, card.SubcategoryID, card.UserID)
 	if err != nil {
 		return err
 	}
@@ -45,7 +45,7 @@ func AddCard(db *sql.DB, card *database.Card) error {
 }
 
 func GetCategoryCards(db *sql.DB, userID int64, categoryID int) ([]database.Card, error) {
-	query := "SELECT id, photo_file_id, title, link, category_id, subcategory_id, user_id FROM cards WHERE user_id = ? AND category_id = ?"
+	query := "SELECT id, photo_file_id, category_id, subcategory_id, user_id FROM cards WHERE user_id = ? AND category_id = ?"
 	rows, err := db.Query(query, userID, categoryID)
 	if err != nil {
 		return nil, err
@@ -56,7 +56,7 @@ func GetCategoryCards(db *sql.DB, userID int64, categoryID int) ([]database.Card
 
 	for rows.Next() {
 		var card database.Card
-		if err := rows.Scan(&card.ID, &card.PhotoFileID, &card.Title, &card.Link, &card.CategoryID, &card.SubcategoryID, &card.UserID); err != nil {
+		if err := rows.Scan(&card.ID, &card.PhotoFileID, &card.CategoryID, &card.SubcategoryID, &card.UserID); err != nil {
 			return nil, err
 		}
 		cards = append(cards, card)
@@ -98,4 +98,23 @@ func GetSubcategories(db *sql.DB, userID int64, categoryID int) ([]database.Subc
 		subcategories = append(subcategories, subcategory)
 	}
 	return subcategories, nil
+}
+
+func GetSubcategoryCards(db *sql.DB, userID int64, subcategoryID int) ([]database.Card, error) {
+	query := "SELECT id, photo_file_id, category_id, subcategory_id, user_id FROM cards WHERE user_id = ? AND subcategory_id = ?"
+	rows, err := db.Query(query, userID, subcategoryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var cards []database.Card
+	for rows.Next() {
+		var card database.Card
+		if err := rows.Scan(&card.ID, &card.PhotoFileID, &card.CategoryID, &card.SubcategoryID, &card.UserID); err != nil {
+			return nil, err
+		}
+		cards = append(cards, card)
+	}
+	return cards, nil
 }

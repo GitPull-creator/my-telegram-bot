@@ -98,6 +98,22 @@ func handleCallback(b *Bot, callback *tgbotapi.CallbackQuery) {
 		categoryID := callbackData[16:]
 		handleAddSubcategory(b, callback.Message.Chat.ID, callback.From.ID, categoryID)
 
+	case len(callbackData) > 13 && callbackData[:13] == "subcategory:":
+		subcategoryID := callbackData[13:]
+		handleSubcategorySelect(b, callback.Message.Chat.ID, callback.From.ID, subcategoryID)
+
+	case len(callbackData) > 17 && callbackData[:17] == "add_sub_card:":
+		subcategoryID := callbackData[17:]
+		handleAddSubcategoryCard(b, callback.Message.Chat.ID, callback.From.ID, subcategoryID)
+
+	case len(callbackData) > 19 && callbackData[:19] == "show_sub_cards:":
+		subcategoryID := callbackData[19:]
+		handleShowSubcategoryCards(b, callback.Message.Chat.ID, callback.From.ID, subcategoryID)
+
+	case len(callbackData) > 13 && callbackData[:13] == "back_to_cat:":
+		categoryID := callbackData[13:]
+		handleCategorySelect(b, callback.Message.Chat.ID, callback.From.ID, categoryID)
+
 	default:
 		log.Printf("Неизвестный callback: %s", callbackData)
 		msg := tgbotapi.NewMessage(callback.Message.Chat.ID, "❌ Неверная команда")
@@ -128,11 +144,32 @@ func handleCategorySelect(b *Bot, chatID int64, userID int64, categoryID string)
 	if category.Name == "Косметика" {
 		subcategories, err := storage.GetSubcategories(b.DB, userID, categoryIDInt)
 		if err == nil && len(subcategories) > 0 {
-			msg := tgbotapi.NewMessage(chatID, "Категория: "+category.Name+"\n\n📂 Подкатегории:")
+			msg := tgbotapi.NewMessage(chatID, "Категория: "+category.Name+"\n\nВыберите подкатегорию:")
+
+			buttons := make([][]tgbotapi.InlineKeyboardButton, 0)
+
 			for _, sub := range subcategories {
-				msg.Text += "\n• " + sub.Name
+				buttons = append(buttons, []tgbotapi.InlineKeyboardButton{
+					tgbotapi.NewInlineKeyboardButtonData(sub.Name, "subcategory:"+strconv.Itoa(sub.ID)),
+				})
 			}
+
+			buttons = append(buttons, []tgbotapi.InlineKeyboardButton{
+				tgbotapi.NewInlineKeyboardButtonData("➕ Добавить карточку", "add_card:"+categoryID),
+				tgbotapi.NewInlineKeyboardButtonData("📋 Показать все", "show_cards:"+categoryID),
+			})
+
+			buttons = append(buttons, []tgbotapi.InlineKeyboardButton{
+				tgbotapi.NewInlineKeyboardButtonData("🔧 Добавить подкатегорию", "add_subcategory:"+categoryID),
+			})
+
+			buttons = append(buttons, []tgbotapi.InlineKeyboardButton{
+				tgbotapi.NewInlineKeyboardButtonData("⬅️ Назад", "back_main"),
+			})
+
+			msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(buttons...)
 			b.bot.Send(msg)
+			return
 		}
 	}
 
@@ -205,16 +242,6 @@ func handleShowCards(b *Bot, chatID int64, userID int64, categoryID string) {
 	} else {
 		for _, card := range cards {
 			photo := tgbotapi.NewPhoto(chatID, tgbotapi.FileID(card.PhotoFileID))
-
-			caption := ""
-			if card.Title != "" {
-				caption += "📝 " + card.Title + "\n"
-			}
-			if card.Link != "" {
-				caption += "🔗 " + card.Link
-			}
-
-			photo.Caption = caption
 			b.bot.Send(photo)
 		}
 	}
@@ -237,13 +264,39 @@ func handlePhoto(b *Bot, message *tgbotapi.Message) {
 
 	photo := message.Photo[len(message.Photo)-1]
 
-	UpdateUserState(userID, UserState{
-		PhotoFileID: photo.FileID,
-		State:       "waiting_title",
-	})
+	card := &database.Card{
+		PhotoFileID:   photo.FileID,
+		CategoryID:    state.CategoryID,
+		SubcategoryID: nil,
+		UserID:        userID,
+	}
 
-	msg := tgbotapi.NewMessage(message.Chat.ID, "✍️ Введите название карточки (или напишите 'пропустить'):")
+	if state.SubcategoryID > 0 {
+		card.SubcategoryID = &state.SubcategoryID
+		var categoryID int
+		err := b.DB.QueryRow("SELECT category_id FROM subcategories WHERE id = ?", state.SubcategoryID).Scan(&categoryID)
+		if err == nil {
+			card.CategoryID = categoryID
+		}
+	}
+
+	err := storage.AddCard(b.DB, card)
+	if err != nil {
+		log.Println("Ошибка сохранения карточки:", err)
+		msg := tgbotapi.NewMessage(message.Chat.ID, "❌ Ошибка при сохранении карточки")
+		b.bot.Send(msg)
+		ClearUserState(userID)
+		return
+	}
+
+	msg := tgbotapi.NewMessage(message.Chat.ID, "✅ Карточка успешно добавлена!")
 	b.bot.Send(msg)
+
+	ClearUserState(userID)
+
+	msg2 := tgbotapi.NewMessage(message.Chat.ID, "👋 Выберите категорию:")
+	msg2.ReplyMarkup = createMainKeyboard(b.DB, userID)
+	b.bot.Send(msg2)
 }
 
 func handleText(b *Bot, message *tgbotapi.Message) {
@@ -256,29 +309,6 @@ func handleText(b *Bot, message *tgbotapi.Message) {
 	}
 
 	switch state.State {
-	case "waiting_title":
-		if text == "пропустить" {
-			text = ""
-		}
-
-		UpdateUserState(userID, UserState{
-			Title: text,
-			State: "waiting_link",
-		})
-
-		msg := tgbotapi.NewMessage(message.Chat.ID, "🔗 Введите ссылку (или напишите 'пропустить'):")
-		b.bot.Send(msg)
-
-	case "waiting_link":
-		link := text
-		if text == "пропустить" {
-			link = ""
-		}
-
-		saveCard(b, userID, message.Chat.ID, state, link)
-
-		ClearUserState(userID)
-
 	case "waiting_subcategory_name":
 		subcategory := &database.Subcategory{
 			Name:       text,
@@ -302,32 +332,6 @@ func handleText(b *Bot, message *tgbotapi.Message) {
 
 		ClearUserState(userID)
 	}
-}
-
-func saveCard(b *Bot, userID int64, chatID int64, state UserState, link string) {
-	card := &database.Card{
-		PhotoFileID:   state.PhotoFileID,
-		Title:         state.Title,
-		Link:          link,
-		CategoryID:    state.CategoryID,
-		SubcategoryID: nil,
-		UserID:        userID,
-	}
-
-	err := storage.AddCard(b.DB, card)
-	if err != nil {
-		log.Println("Ошибка сохранения карточки:", err)
-		msg := tgbotapi.NewMessage(chatID, "❌ Ошибка при сохранении карточки")
-		b.bot.Send(msg)
-		return
-	}
-
-	msg := tgbotapi.NewMessage(chatID, "✅ Карточка успешно добавлена!")
-	b.bot.Send(msg)
-
-	msg2 := tgbotapi.NewMessage(chatID, "👋 Выберите категорию:")
-	msg2.ReplyMarkup = createMainKeyboard(b.DB, userID)
-	b.bot.Send(msg2)
 }
 
 func handleAddSubcategory(b *Bot, chatID int64, userID int64, categoryID string) {
@@ -357,4 +361,99 @@ func handleReset(b *Bot, chatID int64, userID int64) {
 
 	// Показываем главное меню
 	handleStart(b, chatID, userID)
+}
+
+func handleSubcategorySelect(b *Bot, chatID int64, userID int64, subcategoryID string) {
+	subcategoryIDInt, err := strconv.Atoi(subcategoryID)
+	if err != nil {
+		log.Printf("Ошибка преобразования subcategoryID: %s, ошибка: %v", subcategoryID, err)
+		msg := tgbotapi.NewMessage(chatID, "❌ Ошибка идентификатора подкатегории")
+		b.bot.Send(msg)
+		return
+	}
+
+	var subcategory database.Subcategory
+	err = b.DB.QueryRow("SELECT id, name, category_id, user_id FROM subcategories WHERE id = ? AND user_id = ?",
+		subcategoryIDInt, userID).Scan(&subcategory.ID, &subcategory.Name, &subcategory.CategoryID, &subcategory.UserID)
+	if err != nil {
+		log.Println("DB error:", err)
+		msg := tgbotapi.NewMessage(chatID, "❌ Подкатегория не найдена")
+		b.bot.Send(msg)
+		return
+	}
+
+	msg := tgbotapi.NewMessage(chatID, "Подкатегория: "+subcategory.Name)
+
+	buttons := [][]tgbotapi.InlineKeyboardButton{
+		{
+			tgbotapi.NewInlineKeyboardButtonData("➕ Добавить карточку", "add_sub_card:"+subcategoryID),
+			tgbotapi.NewInlineKeyboardButtonData("📋 Показать все", "show_sub_cards:"+subcategoryID),
+		},
+		{
+			tgbotapi.NewInlineKeyboardButtonData("⬅️ Назад", "back_to_cat:"+strconv.Itoa(subcategory.CategoryID)),
+		},
+	}
+
+	msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(buttons...)
+	b.bot.Send(msg)
+}
+
+func handleAddSubcategoryCard(b *Bot, chatID int64, userID int64, subcategoryID string) {
+	subcategoryIDInt, err := strconv.Atoi(subcategoryID)
+	if err != nil {
+		log.Printf("Ошибка преобразования subcategoryID: %s, ошибка: %v", subcategoryID, err)
+		msg := tgbotapi.NewMessage(chatID, "❌ Ошибка идентификатора подкатегории")
+		b.bot.Send(msg)
+		return
+	}
+
+	SetUserStateWithSubcategory(userID, "waiting_photo", 0, subcategoryIDInt)
+	msg := tgbotapi.NewMessage(chatID, "📸 Пришлите фото для карточки:")
+	b.bot.Send(msg)
+}
+
+func handleShowSubcategoryCards(b *Bot, chatID int64, userID int64, subcategoryID string) {
+	subcategoryIDInt, err := strconv.Atoi(subcategoryID)
+	if err != nil {
+		log.Printf("Ошибка преобразования subcategoryID: %s, ошибка: %v", subcategoryID, err)
+		msg := tgbotapi.NewMessage(chatID, "❌ Ошибка идентификатора подкатегории")
+		b.bot.Send(msg)
+		return
+	}
+
+	cards, err := storage.GetSubcategoryCards(b.DB, userID, subcategoryIDInt)
+	if err != nil {
+		log.Println("Ошибка получения карточек:", err)
+		msg := tgbotapi.NewMessage(chatID, "❌ Ошибка при получении карточек")
+		b.bot.Send(msg)
+		return
+	}
+
+	if len(cards) == 0 {
+		msg := tgbotapi.NewMessage(chatID, "📭 В этой подкатегории пока нет карточек")
+		b.bot.Send(msg)
+	} else {
+		for _, card := range cards {
+			photo := tgbotapi.NewPhoto(chatID, tgbotapi.FileID(card.PhotoFileID))
+			b.bot.Send(photo)
+		}
+	}
+
+	var subcategory database.Subcategory
+	err = b.DB.QueryRow("SELECT id, name, category_id, user_id FROM subcategories WHERE id = ? AND user_id = ?",
+		subcategoryIDInt, userID).Scan(&subcategory.ID, &subcategory.Name, &subcategory.CategoryID, &subcategory.UserID)
+	if err == nil {
+		msg := tgbotapi.NewMessage(chatID, "Вы можете:")
+		buttons := [][]tgbotapi.InlineKeyboardButton{
+			{
+				tgbotapi.NewInlineKeyboardButtonData("➕ Добавить карточку", "add_sub_card:"+subcategoryID),
+				tgbotapi.NewInlineKeyboardButtonData("📋 Показать все", "show_sub_cards:"+subcategoryID),
+			},
+			{
+				tgbotapi.NewInlineKeyboardButtonData("⬅️ Назад", "back_to_cat:"+strconv.Itoa(subcategory.CategoryID)),
+			},
+		}
+		msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(buttons...)
+		b.bot.Send(msg)
+	}
 }

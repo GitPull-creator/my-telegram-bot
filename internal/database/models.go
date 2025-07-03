@@ -16,8 +16,6 @@ type Subcategory struct {
 type Card struct {
 	ID            int
 	PhotoFileID   string
-	Title         string
-	Link          string
 	CategoryID    int
 	SubcategoryID *int
 	UserID        int64

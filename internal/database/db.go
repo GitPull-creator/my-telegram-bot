@@ -42,8 +42,6 @@ CREATE TABLE IF NOT EXISTS subcategories (
 CREATE TABLE IF NOT EXISTS cards (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     photo_file_id TEXT NOT NULL,
-    title TEXT,
-    link TEXT,
     category_id INTEGER,
     subcategory_id INTEGER,
     user_id INTEGER NOT NULL
