@@ -82,48 +82,49 @@ func handleCallback(b *Bot, callback *tgbotapi.CallbackQuery) {
 	switch {
 	case callbackData == "back_main":
 		handleStart(b, callback.Message.Chat.ID, callback.From.ID)
-	case len(callbackData) > 9 && callbackData[:9] == "category:":
-		categoryID := callbackData[9:]
-		handleCategorySelect(b, callback.Message.Chat.ID, callback.From.ID, categoryID)
 
-	case len(callbackData) > 9 && callbackData[:9] == "add_card:":
-		categoryID := callbackData[9:]
-		handleAddCard(b, callback.Message.Chat.ID, callback.From.ID, categoryID)
-
-	case len(callbackData) > 11 && callbackData[:11] == "show_cards:":
-		categoryID := callbackData[11:]
-		handleShowCards(b, callback.Message.Chat.ID, callback.From.ID, categoryID)
-
-	case len(callbackData) > 16 && callbackData[:16] == "add_subcategory:":
-		categoryID := callbackData[16:]
-		handleAddSubcategory(b, callback.Message.Chat.ID, callback.From.ID, categoryID)
-
-	case len(callbackData) > 13 && callbackData[:13] == "subcategory:":
-		subcategoryID := callbackData[13:]
-		handleSubcategorySelect(b, callback.Message.Chat.ID, callback.From.ID, subcategoryID)
-
-	case len(callbackData) > 17 && callbackData[:17] == "add_sub_card:":
-		subcategoryID := callbackData[17:]
-		handleAddSubcategoryCard(b, callback.Message.Chat.ID, callback.From.ID, subcategoryID)
-
-	case len(callbackData) > 19 && callbackData[:19] == "show_sub_cards:":
-		subcategoryID := callbackData[19:]
-		handleShowSubcategoryCards(b, callback.Message.Chat.ID, callback.From.ID, subcategoryID)
-
-	case len(callbackData) > 13 && callbackData[:13] == "back_to_cat:":
-		categoryID := callbackData[13:]
-		handleCategorySelect(b, callback.Message.Chat.ID, callback.From.ID, categoryID)
-
-	case len(callbackData) > 12 && callbackData[:12] == "delete_card:":
-		cardID := callbackData[12:]
-		handleDeleteCardConfirmation(b, callback.Message.Chat.ID, callback.From.ID, cardID)
-
-	case len(callbackData) > 14 && callbackData[:14] == "confirm_delete:":
+	case len(callbackData) >= 14 && callbackData[:14] == "confirm_delete:":
 		cardID := callbackData[14:]
 		handleConfirmDelete(b, callback.Message.Chat.ID, callback.From.ID, cardID)
 
-	case len(callbackData) > 13 && callbackData[:13] == "cancel_delete:":
+	case len(callbackData) >= 13 && callbackData[:13] == "cancel_delete:":
 		handleCancelDelete(b, callback.Message.Chat.ID, callback.From.ID)
+
+	case len(callbackData) >= 12 && callbackData[:12] == "delete_card:":
+		cardID := callbackData[12:]
+		handleDeleteCardConfirmation(b, callback.Message.Chat.ID, callback.From.ID, cardID)
+
+	case len(callbackData) >= 19 && callbackData[:19] == "show_sub_cards:":
+		subcategoryID := callbackData[19:]
+		handleShowSubcategoryCards(b, callback.Message.Chat.ID, callback.From.ID, subcategoryID)
+
+	case len(callbackData) >= 17 && callbackData[:17] == "add_sub_card:":
+		subcategoryID := callbackData[17:]
+		handleAddSubcategoryCard(b, callback.Message.Chat.ID, callback.From.ID, subcategoryID)
+
+	case len(callbackData) >= 16 && callbackData[:16] == "add_subcategory:":
+		categoryID := callbackData[16:]
+		handleAddSubcategory(b, callback.Message.Chat.ID, callback.From.ID, categoryID)
+
+	case len(callbackData) >= 13 && callbackData[:13] == "subcategory:":
+		subcategoryID := callbackData[13:]
+		handleSubcategorySelect(b, callback.Message.Chat.ID, callback.From.ID, subcategoryID)
+
+	case len(callbackData) >= 13 && callbackData[:13] == "back_to_cat:":
+		categoryID := callbackData[13:]
+		handleCategorySelect(b, callback.Message.Chat.ID, callback.From.ID, categoryID)
+
+	case len(callbackData) >= 11 && callbackData[:11] == "show_cards:":
+		categoryID := callbackData[11:]
+		handleShowCards(b, callback.Message.Chat.ID, callback.From.ID, categoryID)
+
+	case len(callbackData) >= 9 && callbackData[:9] == "category:":
+		categoryID := callbackData[9:]
+		handleCategorySelect(b, callback.Message.Chat.ID, callback.From.ID, categoryID)
+
+	case len(callbackData) >= 9 && callbackData[:9] == "add_card:":
+		categoryID := callbackData[9:]
+		handleAddCard(b, callback.Message.Chat.ID, callback.From.ID, categoryID)
 
 	default:
 		log.Printf("Неизвестный callback: %s", callbackData)
